@@ -30,10 +30,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 DB_PATH = os.getenv("DB_PATH", "nastroyka.db").strip() or "nastroyka.db"
 SUPPORT = os.getenv("SUPPORT", "@ruzvix").strip() or "@ruzvix"
 
-# Admin statistikasida ko'rinadigan boshlang'ich foydalanuvchilar soni.
-# Yangi odam qo'shilsa: 191, 192, 193 ... shunday davom etadi.
-STATS_START_USERS = 190
-
 ADMIN_IDS = {
     int(x.strip())
     for x in os.getenv("ADMIN_IDS", "").split(",")
@@ -224,15 +220,6 @@ async def init_db():
             "INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)",
             (key, value)
         )
-
-    # Statistika uchun offset: bir marta hisoblanadi.
-    # Ko'rinadigan son = haqiqiy son + offset  (hozir 190 bo'ladi).
-    real_row = await fetchone(c, "SELECT COUNT(*) FROM users")
-    real_count = int(real_row[0]) if real_row else 0
-    await c.execute(
-        "INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)",
-        ("stats_offset", str(STATS_START_USERS - real_count))
-    )
 
     packages = [
         ("BASE", "🟢", 1, "Boshlang‘ich paket", 1),
@@ -1030,13 +1017,9 @@ async def admin_stats(callback: CallbackQuery):
     channels = await fetchone(c, "SELECT COUNT(*) FROM channels WHERE active=1")
     await c.close()
 
-    # Ko'rinadigan son: 190 dan boshlanadi, yangi user qo'shilsa 191, 192 ...
-    try:
-        offset = int(await get_setting("stats_offset", "0"))
-    except Exception:
-        offset = 0
-    shown_users = max(0, users[0] + offset)
-    shown_active = max(0, active[0] + offset)
+    # Haqiqiy bazadagi sonni ko'rsatamiz; soxta 190 offset qo'shilmaydi.
+    shown_users = int(users[0])
+    shown_active = int(active[0])
 
     await edit_callback_page(
         callback,
